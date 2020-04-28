@@ -4,6 +4,10 @@
 ##  Thanks to owen.pragel and anverhousseini from JamfNation
 #### Edited 7/19/19 to address Slack releases.json removal
 #### Edited 8/1/19 to address copy issues and point to Slack's RSS feed for latest version
+#### Edited 2020-04-27  - Changed so multi number version files work
+####			- Changed so Downloads are via RSS feed (downloads page sometimes delays)
+####			- Changed so kills always when updating only.
+####			- Added Jamf notifiers, reports updated vs installed and version
 
 #To kill Slack, Input "kill" in Parameter 4 
 # killSlack="$4"
@@ -17,7 +21,8 @@ install_slack() {
 	
 #Slack download variables
 #slackDownloadUrl=$(curl "https://slack.com/ssb/download-osx" -s -L -I -o /dev/null -w '%{url_effective}')
-slackDownloadUrl=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | grep -m1 -o "https\:\/\/downloads\.slack-edge\.com\/mac_releases\/Slack-\d*\.\d*\.\d*-macOS\.dmg")
+#slackDownloadUrl=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | grep -m1 -o "https\:\/\/downloads\.slack-edge\.com\/mac_releases\/Slack-\d*\.\d*\.\d*-macOS\.dmg")
+slackDownloadUrl=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | sed -nE 's|.*(https://downloads.slack-edge.com/.*\.dmg).*|\1|p' | head -1)
 dmgName=$(printf "%s" "${slackDownloadUrl[@]}" | sed 's@.*/@@')
 slackDmgPath="/tmp/$dmgName"
 
@@ -63,8 +68,6 @@ fi
 #Clean up /tmp download
 	rm -rf "$slackDmgPath"
 	
-#tell user Slack is updated
-        /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -windowPosition  ur -icon  /Applications/Slack.app/Contents/Resources/slack.icns -heading "Slack Installed" -description "Slack has been updated." -timeout 30 &
 
 }
 
@@ -79,11 +82,21 @@ if [ ! -d "/Applications/Slack.app" ]; then
 	echo "=> Slack.app is not installed"
 	install_slack
 	#assimilate_ownership
+	
+	#tell user Slack is updated
+	localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
+        /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -windowPosition  ur -icon  /Applications/Slack.app/Contents/Resources/slack.icns -heading "Slack" -description "Slack $localSlackVersion has been Installed." -timeout 30 &
+
 
 #If Slack version is not current install set permissions
 elif [ "$currentSlackVersion" != `defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString"` ]; then
 	install_slack
 	#assimilate_ownership
+	
+	#tell user Slack is updated
+	localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
+        /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -windowPosition  ur -icon  /Applications/Slack.app/Contents/Resources/slack.icns -heading "Slack" -description "Slack has been updated to $localSlackVersion" -timeout 30 &
+
 	
 #If Slack is installed and up to date just adjust permissions
 elif [ -d "/Applications/Slack.app" ]; then

@@ -16,7 +16,8 @@ currentSlackVersion=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss
 install_slack() {
 	
 #Slack download variables
-slackDownloadUrl=$(curl "https://slack.com/ssb/download-osx" -s -L -I -o /dev/null -w '%{url_effective}')
+#slackDownloadUrl=$(curl "https://slack.com/ssb/download-osx" -s -L -I -o /dev/null -w '%{url_effective}')
+slackDownloadUrl=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | grep -m1 -o "https\:\/\/downloads\.slack-edge\.com\/mac_releases\/Slack-\d*\.\d*\.\d*-macOS\.dmg")
 dmgName=$(printf "%s" "${slackDownloadUrl[@]}" | sed 's@.*/@@')
 slackDmgPath="/tmp/$dmgName"
 

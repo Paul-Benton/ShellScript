@@ -6,10 +6,11 @@
 #### Edited 8/1/19 to address copy issues and point to Slack's RSS feed for latest version
 
 #To kill Slack, Input "kill" in Parameter 4 
-killSlack="$4"
+# killSlack="$4"
+killSlack="kill"
 
 #Find latest Slack version / Pulls Version from Slack for Mac download page
-currentSlackVersion=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | grep -o "Slack-[0-9]\.[0-9]\.[0-9]"  | cut -c 7-11 | head -n 1)
+currentSlackVersion=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | grep -m1 -o "Slack-\d*\.\d*\.\d*"  | cut -c 7-)
 
 #Install Slack function
 install_slack() {
@@ -21,10 +22,10 @@ slackDmgPath="/tmp/$dmgName"
 
 	
 #Kills slack if "kill" in Parameter 4 
-if [ "$killSlack" = "kill" ];
-then
-pkill Slack*
-fi
+#if [ "$killSlack" = "kill" ];
+#then
+#pkill Slack*
+#fi
 
 #Begin Download
 
@@ -39,8 +40,8 @@ if pgrep '[S]lack' && [ "$killSlack" != "kill" ]; then
 	printf "Error: Slack is currently running!\n"
 		
 elif pgrep '[S]lack' && [ "$killSlack" = "kill" ]; then
-	pkill Slack*
-	sleep 10
+	pkill -9 Slack*
+	sleep 5
 	if pgrep '[S]lack' && [ "$killSlack" != "kill" ]; then
 		printf "Error: Slack is still running!  Please try again later.\n"
 		exit 409
@@ -60,6 +61,10 @@ fi
 
 #Clean up /tmp download
 	rm -rf "$slackDmgPath"
+	
+#tell user Slack is updated
+        /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -windowPosition  ur -icon  /Applications/Slack.app/Contents/Resources/slack.icns -heading "Slack Installed" -description "Slack has been updated." -timeout 30 &
+
 }
 
 #Fix Slack ownership function
@@ -72,19 +77,19 @@ assimilate_ownership() {
 if [ ! -d "/Applications/Slack.app" ]; then
 	echo "=> Slack.app is not installed"
 	install_slack
-	assimilate_ownership
+	#assimilate_ownership
 
 #If Slack version is not current install set permissions
 elif [ "$currentSlackVersion" != `defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString"` ]; then
 	install_slack
-	assimilate_ownership
+	#assimilate_ownership
 	
 #If Slack is installed and up to date just adjust permissions
 elif [ -d "/Applications/Slack.app" ]; then
 		localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
 		if [ "$currentSlackVersion" = "$localSlackVersion" ]; then
 			printf "Slack is already up-to-date. Version: %s" "$localSlackVersion"		
-assimilate_ownership			
+#assimilate_ownership			
 			exit 0
 	fi
 fi

@@ -8,6 +8,7 @@
 ####			- Changed so Downloads are via RSS feed (downloads page sometimes delays)
 ####			- Changed so kills always when updating only.
 ####			- Added Jamf notifiers, reports updated vs installed and version
+#### Edited 2020-05-06  - Added download url http request check for 200, Slack RSS was giving bad links. 
 
 #To kill Slack, Input "kill" in Parameter 4 
 # killSlack="$4"
@@ -35,39 +36,46 @@ slackDmgPath="/tmp/$dmgName"
 
 #Begin Download
 
-#Downloads latest version of Slack
-curl -L -o "$slackDmgPath" "$slackDownloadUrl"
+downloadavailable=`curl -l -I -s -o /dev/null -w "%{http_code}" $slackDownloadUrl`
+if [[ $downloadavailable != 200 ]]; then
+	echo "Slack DMG not Reachable, Check Internet Connection error: $downloadavailable"
+	exit $downloadavailable
 
-#Mounts the .dmg
-hdiutil attach -nobrowse $slackDmgPath
+else 
 
-#Checks if Slack is still running
-if pgrep '[S]lack' && [ "$killSlack" != "kill" ]; then
-	printf "Error: Slack is currently running!\n"
-		
-elif pgrep '[S]lack' && [ "$killSlack" = "kill" ]; then
-	pkill -9 Slack*
-	sleep 5
+	#Downloads latest version of Slack
+	curl -L -o "$slackDmgPath" "$slackDownloadUrl"
+
+	#Mounts the .dmg
+	hdiutil attach -nobrowse $slackDmgPath
+
+	#Checks if Slack is still running
 	if pgrep '[S]lack' && [ "$killSlack" != "kill" ]; then
-		printf "Error: Slack is still running!  Please try again later.\n"
-		exit 409
+		printf "Error: Slack is currently running!\n"
+		
+	elif pgrep '[S]lack' && [ "$killSlack" = "kill" ]; then
+		pkill -9 Slack*
+		sleep 5
+		if pgrep '[S]lack' && [ "$killSlack" != "kill" ]; then
+			printf "Error: Slack is still running!  Please try again later.\n"
+			exit 409
+		fi
 	fi
-fi
     
-# Remove the existing Application
-	rm -rf /Applications/Slack.app
+	# Remove the existing Application
+		rm -rf /Applications/Slack.app
 
-#Copy the update app into applications folder
-	ditto -rsrc /Volumes/Slack*/Slack.app /Applications/Slack.app
+	#Copy the update app into applications folder
+		ditto -rsrc /Volumes/Slack*/Slack.app /Applications/Slack.app
 
-#Unmount and eject dmg
-	mountName=$(diskutil list | grep Slack | awk '{ print $3 }')
-	umount -f /Volumes/Slack*/
-	diskutil eject $mountName
+	#Unmount and eject dmg
+		mountName=$(diskutil list | grep Slack | awk '{ print $3 }')
+		umount -f /Volumes/Slack*/
+		diskutil eject $mountName
 
-#Clean up /tmp download
-	rm -rf "$slackDmgPath"
-	
+	#Clean up /tmp download
+		rm -rf "$slackDmgPath"
+fi	
 
 }
 

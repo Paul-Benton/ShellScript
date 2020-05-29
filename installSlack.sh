@@ -8,7 +8,8 @@
 ####			- Changed so Downloads are via RSS feed (downloads page sometimes delays)
 ####			- Changed so kills always when updating only.
 ####			- Added Jamf notifiers, reports updated vs installed and version
-#### Edited 2020-05-06  - Added download url http request check for 200, Slack RSS was giving bad links. 
+#### Edited 2020-05-06  - Added download url http request check for 200, Slack RSS was giving bad links.
+#### Edited 2020-05-29  - Changed localSlackVersion discovery to be less redundant and better for catching errors
 
 #To kill Slack, Input "kill" in Parameter 4 
 # killSlack="$4"
@@ -21,9 +22,14 @@ currentSlackVersion=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss
 install_slack() {
 	
 #Slack download variables
+#Main downloads page
 #slackDownloadUrl=$(curl "https://slack.com/ssb/download-osx" -s -L -I -o /dev/null -w '%{url_effective}')
+
 #slackDownloadUrl=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | grep -m1 -o "https\:\/\/downloads\.slack-edge\.com\/mac_releases\/Slack-\d*\.\d*\.\d*-macOS\.dmg")
+
+#RRS Feed
 slackDownloadUrl=$(/usr/bin/curl -sL 'https://slack.com/release-notes/mac/rss' | sed -nE 's|.*(https://downloads.slack-edge.com/.*\.dmg).*|\1|p' | head -1)
+
 dmgName=$(printf "%s" "${slackDownloadUrl[@]}" | sed 's@.*/@@')
 slackDmgPath="/tmp/$dmgName"
 
@@ -75,6 +81,9 @@ else
 
 	#Clean up /tmp download
 		rm -rf "$slackDmgPath"
+    #update for if check
+	localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
+
 fi	
 
 }
@@ -85,6 +94,8 @@ assimilate_ownership() {
 	chown -R $(scutil <<< "show State:/Users/ConsoleUser" | awk -F': ' '/[[:space:]]+Name[[:space:]]:/ { if ( $2 != "loginwindow" ) { print $2 }}'):staff "/Applications/Slack.app"
 }
 
+#update for if check
+localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
 #Check if Slack is installed
 if [ ! -d "/Applications/Slack.app" ]; then
 	echo "=> Slack.app is not installed"
@@ -92,23 +103,20 @@ if [ ! -d "/Applications/Slack.app" ]; then
 	#assimilate_ownership
 	
 	#tell user Slack is updated
-	localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
         /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -windowPosition  ur -icon  /Applications/Slack.app/Contents/Resources/slack.icns -heading "Slack" -description "Slack $localSlackVersion has been Installed." -timeout 30 &
 
 
 #If Slack version is not current install set permissions
-elif [ "$currentSlackVersion" != `defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString"` ]; then
+elif [ "$currentSlackVersion" != "$localSlackVersion" ]; then
 	install_slack
 	#assimilate_ownership
 	
 	#tell user Slack is updated
-	localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
         /Library/Application\ Support/JAMF/bin/jamfHelper.app/Contents/MacOS/jamfHelper -windowType hud -windowPosition  ur -icon  /Applications/Slack.app/Contents/Resources/slack.icns -heading "Slack" -description "Slack has been updated to $localSlackVersion" -timeout 30 &
 
 	
 #If Slack is installed and up to date just adjust permissions
 elif [ -d "/Applications/Slack.app" ]; then
-		localSlackVersion=$(defaults read "/Applications/Slack.app/Contents/Info.plist" "CFBundleShortVersionString")
 		if [ "$currentSlackVersion" = "$localSlackVersion" ]; then
 			printf "Slack is already up-to-date. Version: %s" "$localSlackVersion"		
 #assimilate_ownership			
